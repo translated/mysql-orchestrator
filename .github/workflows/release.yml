@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Extract version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Build DEB packages in Docker
+      run: |
+        docker build \
+          --build-arg RELEASE_VERSION=${{ steps.get_version.outputs.VERSION }} \
+          -f docker/Dockerfile.packaging \
+          -t orchestrator-build:${{ steps.get_version.outputs.VERSION }} \
+          .
+
+    - name: Extract DEB packages from Docker container
+      run: |
+        # Create container from image
+        CONTAINER_ID=$(docker create orchestrator-build:${{ steps.get_version.outputs.VERSION }})
+
+        # Create output directory
+        mkdir -p packages
+
+        # Copy all DEB packages from the container
+        docker cp ${CONTAINER_ID}:/tmp/orchestrator-release/ ./packages/
+
+        # Clean up container
+        docker rm ${CONTAINER_ID}
+
+        # List extracted packages
+        echo "Extracted packages:"
+        find ./packages -name "*.deb" -type f
+
+    - name: Create Release and Upload DEB packages
+      uses: softprops/action-gh-release@v2
+      with:
+        name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+        files: |
+          packages/**/*.deb
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
