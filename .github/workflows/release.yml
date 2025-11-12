@@ -10,14 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+<<<<<<< HEAD
     - uses: actions/checkout@v4
+=======
+    - uses: actions/checkout@v2
+>>>>>>> 0453d8206ddb82e51276f5164f7d0c0f0e66d464
 
     - name: Extract version from tag
       id: get_version
       run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
     - name: Set up Docker Buildx
+<<<<<<< HEAD
       uses: docker/setup-buildx-action@v3
+=======
+      uses: docker/setup-buildx-action@v2
+>>>>>>> 0453d8206ddb82e51276f5164f7d0c0f0e66d464
 
     - name: Build DEB packages in Docker
       run: |
@@ -45,6 +53,7 @@ jobs:
         echo "Extracted packages:"
         find ./packages -name "*.deb" -type f
 
+<<<<<<< HEAD
     - name: Create Release and Upload DEB packages
       uses: softprops/action-gh-release@v2
       with:
@@ -55,3 +64,31 @@ jobs:
           packages/**/*.deb
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+=======
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload DEB packages to Release
+      run: |
+        # Find and upload all DEB files
+        for deb_file in $(find ./packages -name "*.deb" -type f); do
+          filename=$(basename "$deb_file")
+          echo "Uploading $filename..."
+
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/octet-stream" \
+            "${{ steps.create_release.outputs.upload_url }}?name=$filename" \
+            --data-binary "@$deb_file"
+        done
+>>>>>>> 0453d8206ddb82e51276f5164f7d0c0f0e66d464
